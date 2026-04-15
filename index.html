@@ -654,134 +654,170 @@
 
 <script>
 // ── DATA ──
-const ALL_DATA = [
-  { date:'2026-04-15', project:'Hyperlane', type:'Airdrop', chain:'ETH',      cost:0,    profit:1240, status:'claimed' },
-  { date:'2026-04-14', project:'ZkSync Era', type:'Alpha',   chain:'ZK',      cost:80,   profit:320,  status:'claimed' },
-  { date:'2026-04-13', project:'Berachain',  type:'Trade',   chain:'BERA',    cost:200,  profit:-45,  status:'loss'    },
-  { date:'2026-04-12', project:'Monad',      type:'Airdrop', chain:'MON',     cost:30,   profit:0,    status:'pending' },
-  { date:'2026-04-11', project:'Kamino Fin', type:'Trade',   chain:'SOL',     cost:150,  profit:490,  status:'win'     },
-  { date:'2026-04-10', project:'Initia',     type:'Airdrop', chain:'INIT',    cost:0,    profit:880,  status:'claimed' },
-  { date:'2026-04-09', project:'StarkNet',   type:'Alpha',   chain:'STRK',    cost:60,   profit:-20,  status:'loss'    },
-  { date:'2026-04-08', project:'EigenLayer', type:'Airdrop', chain:'ETH',     cost:0,    profit:2100, status:'claimed' },
-  { date:'2026-04-07', project:'Scroll',     type:'Alpha',   chain:'ETH',     cost:40,   profit:210,  status:'win'     },
-  { date:'2026-04-06', project:'Linea',      type:'Trade',   chain:'ETH',     cost:120,  profit:380,  status:'win'     },
-  { date:'2026-04-05', project:'Sei Net',    type:'Airdrop', chain:'SEI',     cost:0,    profit:640,  status:'claimed' },
-  { date:'2026-04-04', project:'Arbitrum',   type:'Alpha',   chain:'ARB',     cost:90,   profit:170,  status:'win'     },
-  { date:'2026-04-03', project:'Celestia',   type:'Airdrop', chain:'TIA',     cost:0,    profit:1560, status:'claimed' },
-  { date:'2026-04-02', project:'Drift DEX',  type:'Trade',   chain:'SOL',     cost:300,  profit:-90,  status:'loss'    },
-  { date:'2026-04-01', project:'LayerZero',  type:'Airdrop', chain:'ZRO',     cost:0,    profit:3200, status:'claimed' },
-];
+<script>
+let ALL_DATA = [];
+const API_URL = "https://sheetdb.io/api/v1/1qbay6fusg39y";
 
-const LATEST = ALL_DATA.slice(0, 8);
-
-// ── CLOCK ──
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').textContent =
-    now.toISOString().slice(11,19) + ' UTC';
-}
-setInterval(updateClock, 1000); updateClock();
-
-// ── SHEET ROWS ──
-function typeTag(t) {
-  const map = { Airdrop:'blue', Alpha:'green', Trade:'yellow' };
-  return `<span class="tag tag-${map[t]||'blue'}">${t}</span>`;
-}
-function statusTag(s) {
-  const map = { claimed:'green', win:'green', loss:'red', pending:'yellow' };
-  return `<span class="tag tag-${map[s]||'blue'}">${s}</span>`;
-}
-function profitCell(p) {
-  const color = p > 0 ? 'var(--green)' : p < 0 ? 'var(--red)' : 'var(--text3)';
-  const sign  = p > 0 ? '+' : '';
-  return `<span style="color:${color};font-weight:600;">${sign}${p}</span>`;
-}
-
-const tbody = document.getElementById('sheet-body');
-document.getElementById('total-rows').textContent = ALL_DATA.length;
-
-LATEST.forEach((row, i) => {
-  const isLatest = i === 0;
-  const tr = document.createElement('tr');
-  if (isLatest) tr.classList.add('latest');
-  tr.innerHTML = `
-    <td class="row-num">${isLatest ? '<span class="row-new-badge"></span>' : ''}${i+1}</td>
-    <td class="cell-date">${row.date}</td>
-    <td class="cell-name">${row.project}</td>
-    <td class="cell-type">${typeTag(row.type)}</td>
-    <td class="cell-chain">${row.chain}</td>
-    <td class="cell-val">${row.cost}</td>
-    <td class="cell-profit">${profitCell(row.profit)}</td>
-    <td class="cell-status">${statusTag(row.status)}</td>
-  `;
-  tbody.appendChild(tr);
+// ===== 启动 =====
+document.addEventListener("DOMContentLoaded", () => {
+  showLoading();
+  loadData();
+  setInterval(loadData, 30000);
 });
 
-// ── STATS ──
-const totalProfit = ALL_DATA.reduce((s,r)=>s+r.profit,0);
-const wins = ALL_DATA.filter(r=>r.status==='win'||r.status==='claimed').length;
-const losses = ALL_DATA.filter(r=>r.status==='loss').length;
-const pending = ALL_DATA.filter(r=>r.status==='pending').length;
-const closed = wins + losses;
-const winRate = closed > 0 ? Math.round(wins/closed*100) : 0;
+// ===== 加载数据 =====
+async function loadData() {
+  try {
+    const res = await fetch(API_URL);
 
-document.getElementById('total-profit').textContent = (totalProfit>0?'+':'')+totalProfit.toLocaleString();
-document.getElementById('total-trades').textContent = ALL_DATA.length;
-document.getElementById('win-count').textContent = wins;
-document.getElementById('lose-count').textContent = losses;
-document.getElementById('pending-count').textContent = pending;
-document.getElementById('win-rate').textContent = winRate + '%';
-document.getElementById('profit-delta').textContent = '+'+winRate+'%';
-setTimeout(()=>{
-  document.getElementById('win-rate-bar').style.width = winRate+'%';
-}, 400);
+    if (!res.ok) throw new Error("网络错误");
 
-// ── SPARKLINE ──
-const weekData = [4,7,5,9,6,11,8];
-const maxW = Math.max(...weekData);
-const spark = document.getElementById('sparkline');
-weekData.forEach((v,i) => {
-  const bar = document.createElement('div');
-  bar.className = 'spark-bar' + (i===weekData.length-1?' high':i>=4?' active':'');
-  bar.style.height = Math.round(v/maxW*100)+'%';
-  spark.appendChild(bar);
-});
+    const data = await res.json();
 
-// ── CHAIN BREAKDOWN ──
-const chainMap = {};
-ALL_DATA.forEach(r=>{ chainMap[r.chain]=(chainMap[r.chain]||0)+1; });
-const chainColors = ['#00ff88','#4facfe','#ffd166','#ff3b5c','#a78bfa','#fb923c'];
-const chainList = document.getElementById('chain-list');
-const sorted = Object.entries(chainMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-sorted.forEach(([chain,cnt],i) => {
-  const pct = Math.round(cnt/ALL_DATA.length*100);
-  const item = document.createElement('div');
-  item.className = 'chain-item';
-  item.innerHTML = `
-    <div class="chain-dot" style="background:${chainColors[i]};"></div>
-    <div class="chain-name">${chain}</div>
-    <div class="chain-bar-wrap"><div class="chain-bar-fill" style="width:${pct}%;background:${chainColors[i]};opacity:0.7;"></div></div>
-    <div class="chain-pct">${pct}%</div>
-  `;
-  chainList.appendChild(item);
-});
+    if (!data || data.length === 0) {
+      throw new Error("空数据");
+    }
 
-// ── ACTIVITY ──
-const actList = document.getElementById('activity-list');
-LATEST.slice(0,5).forEach(row => {
-  const isUp = row.profit >= 0;
-  const item = document.createElement('div');
-  item.className = 'activity-item';
-  item.innerHTML = `
-    <div class="activity-dot" style="background:${isUp?'var(--green)':'var(--red)'};"></div>
-    <div class="activity-main">
-      <div class="activity-name">${row.project}</div>
-      <div class="activity-meta">${row.type} - ${row.chain} - ${row.date}</div>
+    ALL_DATA = normalize(data);
+
+    localStorage.setItem("alpha_cache", JSON.stringify(ALL_DATA));
+
+    renderAll();
+
+  } catch (err) {
+    console.error("❌ API失败:", err);
+
+    const cache = localStorage.getItem("alpha_cache");
+
+    if (cache) {
+      ALL_DATA = JSON.parse(cache);
+      renderAll(true);
+    } else {
+      showError("数据加载失败，请检查 Sheet 或 API");
+    }
+  }
+}
+
+// ===== 数据格式 =====
+function normalize(data) {
+  return data.map(r => ({
+    date: r.DATE || '-',
+    project: r.PROJECT || '-',
+    type: r.TYPE || '-',
+    chain: r.CHAIN || '-',
+    cost: Number(r.COST) || 0,
+    profit: Number(r.PROFIT) || 0,
+    status: (r.STATUS || '').toLowerCase()
+  }));
+}
+
+// ===== 渲染入口 =====
+function renderAll(isCache=false) {
+  renderTable();
+  renderStats();
+  renderActivity();
+
+  document.getElementById("last-update").textContent =
+    isCache ? "Using cache" : "Updated just now";
+}
+
+// ===== 表格 =====
+function renderTable() {
+  const tbody = document.getElementById("sheet-body");
+  tbody.innerHTML = "";
+
+  const latest = ALL_DATA.slice(0, 8);
+
+  latest.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    if (i === 0) tr.classList.add("latest");
+
+    tr.innerHTML = `
+      <td class="row-num">${i+1}</td>
+      <td class="cell-date">${row.date}</td>
+      <td class="cell-name">${row.project}</td>
+      <td>${row.type}</td>
+      <td>${row.chain}</td>
+      <td>${row.cost}</td>
+      <td style="color:${getColor(row.profit)}">
+        ${row.profit > 0 ? '+' : ''}${row.profit}
+      </td>
+      <td>${row.status}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("total-rows").textContent = ALL_DATA.length;
+}
+
+// ===== 统计 =====
+function renderStats() {
+  const total = ALL_DATA.reduce((s,r)=>s+r.profit,0);
+
+  const wins = ALL_DATA.filter(r=>r.profit>0).length;
+  const losses = ALL_DATA.filter(r=>r.profit<0).length;
+
+  const rate = (wins+losses) ? Math.round(wins/(wins+losses)*100) : 0;
+
+  document.getElementById("total-profit").textContent =
+    (total>0?'+':'') + total.toLocaleString();
+
+  document.getElementById("total-trades").textContent = ALL_DATA.length;
+  document.getElementById("win-count").textContent = wins;
+  document.getElementById("lose-count").textContent = losses;
+  document.getElementById("win-rate").textContent = rate + "%";
+
+  const bar = document.getElementById("win-rate-bar");
+  if (bar) bar.style.width = rate + "%";
+}
+
+// ===== 活动 =====
+function renderActivity() {
+  const list = document.getElementById("activity-list");
+  list.innerHTML = "";
+
+  ALL_DATA.slice(0,5).forEach(row => {
+    const item = document.createElement("div");
+    const up = row.profit >= 0;
+
+    item.className = "activity-item";
+
+    item.innerHTML = `
+      <div class="activity-dot" style="background:${up?'#00ff88':'#ff3b5c'};"></div>
+      <div class="activity-main">
+        <div class="activity-name">${row.project}</div>
+        <div class="activity-meta">${row.chain} - ${row.date}</div>
+      </div>
+      <div style="color:${up?'#00ff88':'#ff3b5c'}">
+        ${row.profit>0?'+':''}${row.profit}U
+      </div>
+    `;
+
+    list.appendChild(item);
+  });
+}
+
+// ===== UI =====
+function showLoading() {
+  document.getElementById("total-profit").textContent = "Loading...";
+}
+
+function showError(msg) {
+  document.body.innerHTML = `
+    <div style="color:white;padding:40px;font-family:monospace;">
+      ❌ ${msg}
     </div>
-    <div class="activity-profit ${isUp?'profit-up':'profit-down'}">${row.profit>0?'+':''}${row.profit}U</div>
   `;
-  actList.appendChild(item);
-});
+}
+
+// ===== 工具 =====
+function getColor(v) {
+  if (v > 0) return "#00ff88";
+  if (v < 0) return "#ff3b5c";
+  return "#888";
+}
+</script>
 </script>
 </body>
 </html>
